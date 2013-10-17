@@ -45,17 +45,17 @@
       <sourceFolder url="file://$MODULE_DIR$/src/main/aidl" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/assets" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/clusterkraf/library/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/jni" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/rs" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/main/res" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/main/resources" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/aidl" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/assets" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/java" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/jni" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/rs" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/res" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/src/instrumentTest/resources" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/aidl" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/assets" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/java" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/jni" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/rs" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/res" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/tests/resources" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/build/apk" />
       <excludeFolder url="file://$MODULE_DIR$/build/assets" />
       <excludeFolder url="file://$MODULE_DIR$/build/bundles" />
@@ -77,6 +77,7 @@
     <orderEntry type="library" exported="" name="gson-2.2.4" level="project" />
     <orderEntry type="library" exported="" name="jsoup-1.7.2" level="project" />
     <orderEntry type="library" exported="" name="okhttp-1.2.1" level="project" />
+    <orderEntry type="library" exported="" name="library-2.4.0" level="project" />
     <orderEntry type="library" exported="" name="commons-io-2.4" level="project" />
     <orderEntry type="library" exported="" name="okhttp-protocols-1.2.1" level="project" />
   </component>

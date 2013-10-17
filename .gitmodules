@@ -1,0 +1,3 @@
+[submodule "LinkTester/clusterkraf"]
+	path = LinkTester/clusterkraf
+	url = git@github.com:nealsanche/clusterkraf.git

@@ -11,6 +11,7 @@ public class PortalKey extends InventoryItem {
     private String portalAddress;
     private String portalImageURL;
     private String portalGuid;
+    private int keyCount = 1;
 
     public PortalKey(LatLng location, String portalTitle, String portalAddress, String portalImageURL, String portalGuid) {
 
@@ -43,5 +44,13 @@ public class PortalKey extends InventoryItem {
 
     public String getPortalImageURL() {
         return portalImageURL;
+    }
+
+    public int getKeyCount() {
+        return keyCount;
+    }
+
+    public void incrementKeyCount() {
+        keyCount += 1;
     }
 }

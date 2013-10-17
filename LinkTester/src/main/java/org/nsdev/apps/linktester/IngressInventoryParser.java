@@ -8,6 +8,7 @@ import org.json.JSONObject;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -21,6 +22,8 @@ public class IngressInventoryParser {
         JSONArray inventory = result.getJSONObject("gameBasket").getJSONArray("inventory");
 
         ArrayList<InventoryItem> items = new ArrayList<InventoryItem>(inventory.length());
+
+        HashMap<String, PortalKey> keyMap = new HashMap<String, PortalKey>();
 
         for (int i = 0; i < inventory.length(); i++)
         {
@@ -43,8 +46,17 @@ public class IngressInventoryParser {
 
                     LatLng location = parsePortalLocation(portalLocation);
 
-                    items.add(new PortalKey(location,portalTitle,portalAddress,portalImageURL, portalGuid));
+                    if (keyMap.containsKey(portalGuid)) {
 
+                        keyMap.get(portalGuid).incrementKeyCount();
+
+                    } else {
+
+                        PortalKey portalKey = new PortalKey(location, portalTitle, portalAddress, portalImageURL, portalGuid);
+                        items.add(portalKey);
+                        keyMap.put(portalGuid, portalKey);
+
+                    }
                 }
             }
         }

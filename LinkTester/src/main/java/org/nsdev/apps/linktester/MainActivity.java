@@ -13,6 +13,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
+import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.Toast;
 
 import com.google.android.gms.common.AccountPicker;
@@ -21,6 +22,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -31,6 +33,12 @@ import com.google.maps.android.SphericalUtil;
 import com.squareup.okhttp.HttpResponseCache;
 import com.squareup.okhttp.OkAuthenticator;
 import com.squareup.okhttp.OkHttpClient;
+import com.twotoasters.clusterkraf.ClusterPoint;
+import com.twotoasters.clusterkraf.Clusterkraf;
+import com.twotoasters.clusterkraf.InputPoint;
+import com.twotoasters.clusterkraf.OnCameraChangeDownstreamListener;
+import com.twotoasters.clusterkraf.OnInfoWindowClickDownstreamListener;
+import com.twotoasters.clusterkraf.Options;
 
 import org.apache.commons.io.IOUtils;
 import org.json.JSONException;
@@ -46,6 +54,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Stack;
@@ -76,6 +85,7 @@ public class MainActivity extends Activity {
     private HashMap<Marker, PortalKey> markerKeys = new HashMap<Marker, PortalKey>();
 
     private Stack<LatLng> distanceStack = new Stack<LatLng>();
+    private Clusterkraf mClusterkraf;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -88,7 +98,7 @@ public class MainActivity extends Activity {
 
         LatLng sydney = new LatLng(-33.867, 151.206);
 
-        map.setMyLocationEnabled(true);
+        map.setMyLocationEnabled(false);
         map.moveCamera(CameraUpdateFactory.newLatLngZoom(sydney, 13));
 
         map.addMarker(new MarkerOptions()
@@ -100,11 +110,20 @@ public class MainActivity extends Activity {
                 false, null, null, null, null);
         startActivityForResult(intent, SOME_REQUEST_CODE);
 
-        map.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-            @Override
-            public void onInfoWindowClick(Marker marker) {
+        com.twotoasters.clusterkraf.Options options = new com.twotoasters.clusterkraf.Options();
 
-                if (markerKeys.containsKey(marker))
+        options.setTransitionDuration(500);
+        options.setPixelDistanceToJoinCluster(30);
+        options.setZoomToBoundsPadding(75);
+        options.setZoomToBoundsAnimationDuration(750);
+        options.setTransitionInterpolator(new AnticipateOvershootInterpolator());
+        options.setMarkerOptionsChooser(new PortalMarkerOptionsChooser(this));
+        options.setSinglePointClickBehavior(Options.SinglePointClickBehavior.SHOW_INFO_WINDOW_NO_CENTER);
+        options.setOnInfoWindowClickDownstreamListener(new OnInfoWindowClickDownstreamListener() {
+            @Override
+            public boolean onInfoWindowClick(Marker marker, ClusterPoint clusterPoint) {
+
+                if (clusterPoint != null)
                     distanceStack.push(marker.getPosition());
 
                 if (distanceStack.size() == 2) {
@@ -131,13 +150,21 @@ public class MainActivity extends Activity {
                     MarkerOptions midPointMarker = new MarkerOptions();
                     midPointMarker.position(center);
                     midPointMarker.title(distance);
-                    midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_content_new));
+                    midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_link_center));
                     midPointMarker.anchor(0.5f,0.5f);
 
                     map.addMarker(midPointMarker);
                 }
+
+                return false;
             }
         });
+        options.setOnCameraChangeDownstreamListener(new OnCameraChangeDownstreamListener() {
+            @Override
+            public void onCameraChange(CameraPosition cameraPosition) {
+            }
+        });
+        mClusterkraf = new Clusterkraf(map, options, null);
 
     }
 
@@ -331,11 +358,18 @@ public class MainActivity extends Activity {
                                                                     public void run() {
 
                                                                         LatLngBounds.Builder bounds = new LatLngBounds.Builder();
+                                                                        ArrayList<InputPoint> points = new ArrayList<InputPoint>();
+
                                                                         for (InventoryItem item : keys) {
                                                                             PortalKey key = (PortalKey)item;
 
+                                                                            LatLng position = new LatLng(key.getLocation().latitude, key.getLocation().longitude);
+                                                                            points.add(new InputPoint(position, key));
+
                                                                             bounds.include(key.getLocation());
 
+
+                                                                            /*
                                                                             Marker m = map.addMarker(new MarkerOptions()
                                                                                     .title(key.getPortalTitle())
                                                                                     .snippet(key.getPortalAddress())
@@ -344,14 +378,18 @@ public class MainActivity extends Activity {
                                                                                     .position(key.getLocation()));
 
                                                                             markerKeys.put(m, key);
+                                                                            */
 
                                                                         }
+
+                                                                        mClusterkraf.replace(points);
 
                                                                         LatLngBounds latLngBounds = bounds.build();
 
                                                                         CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngBounds(latLngBounds, 100);
 
                                                                         map.animateCamera(cameraUpdate);
+
 
                                                                     }
                                                                 });
