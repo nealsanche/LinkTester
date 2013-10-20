@@ -1,6 +1,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+<!--
     <item android:id="@+id/action_settings"
         android:title="@string/action_settings"
         android:orderInCategory="100"
         android:showAsAction="never" />
+-->
+    <item android:id="@+id/action_signout"
+        android:title="@string/action_signout"
+        android:orderInCategory="99"
+        android:showAsAction="never" />
+    <item android:id="@+id/action_refresh"
+        android:title="@string/action_refresh"
+        android:orderInCategory="98"
+        android:icon="@drawable/ic_action_navigation_refresh"
+        android:showAsAction="ifRoom" />
+    <item android:id="@+id/action_show_location"
+        android:title="@string/action_show_location"
+        android:icon="@drawable/ic_action_location_place"
+        android:orderInCategory="99"
+        android:showAsAction="ifRoom" />
 </menu>

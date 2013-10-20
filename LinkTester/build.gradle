@@ -3,7 +3,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.5.+'
+        classpath 'com.android.tools.build:gradle:0.6.3'
     }
 }
 apply plugin: 'android'
@@ -33,6 +33,22 @@ android {
         }
 
         instrumentTest.setRoot('tests')
+    }
+
+    signingConfigs {
+        releaseConfig {
+            storeFile file("release.keystore")
+            storePassword "Mac111Mac111"
+            keyAlias "thorinside"
+            keyPassword "Mac111Mac111"
+        }
+    }
+
+    buildTypes {
+        release {
+            debuggable false
+            signingConfig signingConfigs.releaseConfig
+        }
     }
 }
 

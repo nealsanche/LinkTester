@@ -70,7 +70,8 @@ public class PortalMarkerOptionsChooser extends MarkerOptionsChooser {
             String snippet = null;
 
             if (isCluster) {
-                icon = BitmapDescriptorFactory.fromBitmap(getClusterBitmap(res, R.drawable.ic_portal, clusterPoint.size()));
+                int totalCount = countAllPortals(clusterPoint);
+                icon = BitmapDescriptorFactory.fromBitmap(getClusterBitmap(res, R.drawable.ic_portal, totalCount));
             } else {
                 PortalKey key = (PortalKey)clusterPoint.getPointAtOffset(0).getTag();
                 title = key.getPortalTitle();
@@ -89,6 +90,14 @@ public class PortalMarkerOptionsChooser extends MarkerOptionsChooser {
             markerOptions.anchor(0.5f, 0.5f);
             markerOptions.infoWindowAnchor(0.5f,0f);
         }
+    }
+
+    private int countAllPortals(ClusterPoint clusterPoint) {
+        int total = 0;
+        for (int i = 0; i < clusterPoint.size(); i++) {
+            total += ((PortalKey)clusterPoint.getPointAtOffset(i).getTag()).getKeyCount();
+        }
+        return total;
     }
 
     @SuppressLint("NewApi")

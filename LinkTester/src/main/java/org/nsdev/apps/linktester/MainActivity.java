@@ -7,16 +7,24 @@ import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MenuItem;
+import android.view.Window;
 import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.Toast;
 
 import com.google.android.gms.common.AccountPicker;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesClient;
+import com.google.android.gms.location.LocationClient;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -44,6 +52,8 @@ import org.apache.commons.io.IOUtils;
 import org.json.JSONException;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.CookieHandler;
 import java.net.CookieManager;
@@ -60,6 +70,7 @@ import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -76,6 +87,9 @@ public class MainActivity extends Activity {
 
     private static final String HTTPS_SERVER_ADDRESS = "https://m-dot-betaspike.appspot.com";
     private static final String TAG = "LinkTester";
+    public static final String ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER = "org.nsdev.apps.LinkTester.selectedUser";
+    public static final String ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION = "org.nsdev.apps.LinkTester.mapLocation";
+
     private OkHttpClient okHttpClient;
     private int SOME_REQUEST_CODE = 999;
     private CookieManager cookieManager;
@@ -87,8 +101,14 @@ public class MainActivity extends Activity {
     private Stack<LatLng> distanceStack = new Stack<LatLng>();
     private Clusterkraf mClusterkraf;
 
+    private AtomicBoolean dataLoaded = new AtomicBoolean(false);
+    private LocationClient client;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -96,19 +116,9 @@ public class MainActivity extends Activity {
         map = ((MapFragment) getFragmentManager()
                 .findFragmentById(R.id.map)).getMap();
 
-        LatLng sydney = new LatLng(-33.867, 151.206);
-
         map.setMyLocationEnabled(false);
-        map.moveCamera(CameraUpdateFactory.newLatLngZoom(sydney, 13));
 
-        map.addMarker(new MarkerOptions()
-                .title("Sydney")
-                .snippet("The most populous city in Australia.")
-                .position(sydney));
-
-        Intent intent = AccountPicker.newChooseAccountIntent(null, null, new String[]{"com.google"},
-                false, null, null, null, null);
-        startActivityForResult(intent, SOME_REQUEST_CODE);
+        restoreMapPosition();
 
         com.twotoasters.clusterkraf.Options options = new com.twotoasters.clusterkraf.Options();
 
@@ -159,20 +169,66 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
+
         options.setOnCameraChangeDownstreamListener(new OnCameraChangeDownstreamListener() {
             @Override
             public void onCameraChange(CameraPosition cameraPosition) {
+                if (!dataLoaded.getAndSet(true)) {
+
+                    if (isAccountSaved()) {
+                        // Load cached data, then query for more current data
+                        startLoadingCachedInventoryThenRefresh();
+                    }
+                    else
+                    {
+                        // Prompt for the account
+                        Intent intent = AccountPicker.newChooseAccountIntent(null, null, new String[]{"com.google"},
+                                false, null, null, null, null);
+                        startActivityForResult(intent, SOME_REQUEST_CODE);
+                    }
+
+                }
+
+                SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION, Context.MODE_PRIVATE);
+
+                prefs.edit().putLong("latitude", (long)(cameraPosition.target.latitude * 1E6))
+                        .putLong("longitude", (long)(cameraPosition.target.longitude * 1E6))
+                        .putFloat("zoom", cameraPosition.zoom)
+                        .commit();
             }
         });
+
         mClusterkraf = new Clusterkraf(map, options, null);
+
 
     }
 
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
+    private void startLoadingCachedInventoryThenRefresh() {
+        // Remember the accountName and accountType for later
+        SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
 
-        finish();
+        String accountName = prefs.getString("accountName", null);
+        String accountType = prefs.getString("accountType", null);
+
+        if (accountName != null && accountType != null) {
+            File cachedInventory = getCachedInventoryFile(accountName, accountType);
+
+            try {
+                String json = IOUtils.toString(new FileInputStream(cachedInventory), "utf-8");
+
+                showInventory(json);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        return super.onKeyUp(keyCode, event);
     }
 
     @Override
@@ -180,6 +236,51 @@ public class MainActivity extends Activity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        if (item.getItemId() == R.id.action_signout) {
+
+            SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
+            if (prefs.contains("accountName") && prefs.contains("accountType")) {
+                String accountName = prefs.getString("accountName", null);
+                String accountType = prefs.getString("accountType", null);
+
+                getCachedInventoryFile(accountName, accountType).delete();
+
+                prefs.edit()
+                        .remove("accountName")
+                        .remove("accountType")
+                        .commit();
+
+                finish();
+            }
+
+        }
+        else if (item.getItemId() == R.id.action_refresh) {
+
+            refreshInventory();
+
+        }
+        else if (item.getItemId() == R.id.action_show_location) {
+            if (map != null)
+                map.setMyLocationEnabled(!map.isMyLocationEnabled());
+        }
+
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
     }
 
     public InventoryServiceAsync getService() {
@@ -241,37 +342,113 @@ public class MainActivity extends Activity {
                 Bundle extras = data.getExtras();
                 Log.e(TAG, "Intent = " + extras);
 
-                AccountManager accountManager = AccountManager.get(getApplicationContext());
-                String accountName = extras.getString(AccountManager.KEY_ACCOUNT_NAME);
-                String accountType = extras.getString(AccountManager.KEY_ACCOUNT_TYPE);
-                Account account = new Account(accountName, accountType);
-                accountManager.getAuthToken(account, "ah", false, new AccountManagerCallback<Bundle>() {
-                    @Override
-                    public void run(AccountManagerFuture<Bundle> bundleAccountManagerFuture) {
-                        Bundle bundle = null;
-                        try {
-                            bundle = bundleAccountManagerFuture.getResult();
-                        } catch (OperationCanceledException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (AuthenticatorException e) {
-                            e.printStackTrace();
-                        }
-                        Intent intent = (Intent)bundle.get(AccountManager.KEY_INTENT);
-                        if(intent != null) {
-                            // User input required
-                            startActivity(intent);
-                        } else {
-                            onGetAuthToken(bundle);
-                        }
-                    }
-                }, null);
+                String accountName = extras.getString(AccountManager.KEY_ACCOUNT_NAME, null);
+                String accountType = extras.getString(AccountManager.KEY_ACCOUNT_TYPE, null);
+
+                if (accountName != null && accountType != null) {
+                    saveAccount(accountName, accountType);
+                    getInventoryForAccount(accountName, accountType);
+                }
             }
         }
     }
 
-    private void onGetAuthToken(Bundle bundle) {
+    private void restoreMapPosition() {
+        // Remember the accountName and accountType for later
+        SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION, Context.MODE_PRIVATE);
+
+        if (prefs.contains("latitude") && prefs.contains("longitude")) {
+            double latitude = (double)prefs.getLong("latitude",0) / 1E6;
+            double longitude = (double)prefs.getLong("longitude",0) / 1E6;
+            float zoom = prefs.getFloat("zoom", 14);
+
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
+        }
+        else
+        {
+            // Move the map to the user's current coarse location
+            client = new LocationClient(this, new GooglePlayServicesClient.ConnectionCallbacks() {
+                @Override
+                public void onConnected(Bundle bundle) {
+                    Location location = client.getLastLocation();
+                    if (location != null)
+                        map.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(location.getLatitude(), location.getLongitude())));
+                }
+
+                @Override
+                public void onDisconnected() {
+
+                }
+            }, new GooglePlayServicesClient.OnConnectionFailedListener() {
+                @Override
+                public void onConnectionFailed(ConnectionResult connectionResult) {
+
+                }
+            });
+        }
+    }
+
+    private boolean isAccountSaved() {
+        // Remember the accountName and accountType for later
+        SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
+
+        return (prefs.contains("accountName") && prefs.contains("accountType"));
+    }
+
+    private void saveAccount(String accountName, String accountType) {
+        // Remember the accountName and accountType for later
+        SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
+
+        prefs.edit()
+                .putString("accountName", accountName)
+                .putString("accountType", accountType)
+                .commit();
+    }
+
+    private void refreshInventory() {
+        SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
+
+        if (prefs.contains("accountName") && prefs.contains("accountType")) {
+            String accountName = prefs.getString("accountName", null);
+            String accountType = prefs.getString("accountType", null);
+
+            getInventoryForAccount(accountName, accountType);
+        }
+
+    }
+
+
+    private void getInventoryForAccount(final String accountName, final String accountType) {
+
+        setIndeterminate(true);
+
+        AccountManager accountManager = AccountManager.get(getApplicationContext());
+        Account account = new Account(accountName, accountType);
+        accountManager.getAuthToken(account, "ah", false, new AccountManagerCallback<Bundle>() {
+            @Override
+            public void run(AccountManagerFuture<Bundle> bundleAccountManagerFuture) {
+                Bundle bundle = null;
+                try {
+                    bundle = bundleAccountManagerFuture.getResult();
+                } catch (OperationCanceledException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (AuthenticatorException e) {
+                    e.printStackTrace();
+                }
+                Intent intent = (Intent)bundle.get(AccountManager.KEY_INTENT);
+                if(intent != null) {
+                    // User input required
+                    startActivity(intent);
+                } else {
+                    onGetAuthToken(accountName, accountType, bundle);
+                }
+            }
+        }, null);
+    }
+
+    private void onGetAuthToken(final String accountName, final String accountType, Bundle bundle) {
         Log.e(TAG, "onGetAuthToken" + bundle);
 
         String authtoken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
@@ -349,55 +526,18 @@ public class MainActivity extends Activity {
                                                             try {
                                                                 String json = IOUtils.toString(inventory.getBody().in());
 
-                                                                final List<InventoryItem> keys = IngressInventoryParser.parse(json);
+                                                                // Cache the JSON
+                                                                File cachedInventory = getCachedInventoryFile(accountName, accountType);
+                                                                IOUtils.write(json, new FileOutputStream(cachedInventory));
 
-                                                                Log.e(TAG, "keys.size = " + keys.size());
-
-                                                                runOnUiThread(new Runnable() {
-                                                                    @Override
-                                                                    public void run() {
-
-                                                                        LatLngBounds.Builder bounds = new LatLngBounds.Builder();
-                                                                        ArrayList<InputPoint> points = new ArrayList<InputPoint>();
-
-                                                                        for (InventoryItem item : keys) {
-                                                                            PortalKey key = (PortalKey)item;
-
-                                                                            LatLng position = new LatLng(key.getLocation().latitude, key.getLocation().longitude);
-                                                                            points.add(new InputPoint(position, key));
-
-                                                                            bounds.include(key.getLocation());
-
-
-                                                                            /*
-                                                                            Marker m = map.addMarker(new MarkerOptions()
-                                                                                    .title(key.getPortalTitle())
-                                                                                    .snippet(key.getPortalAddress())
-                                                                                    .anchor(0.5f,0.5f)
-                                                                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_portal))
-                                                                                    .position(key.getLocation()));
-
-                                                                            markerKeys.put(m, key);
-                                                                            */
-
-                                                                        }
-
-                                                                        mClusterkraf.replace(points);
-
-                                                                        LatLngBounds latLngBounds = bounds.build();
-
-                                                                        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngBounds(latLngBounds, 100);
-
-                                                                        map.animateCamera(cameraUpdate);
-
-
-                                                                    }
-                                                                });
+                                                                showInventory(json);
 
                                                             } catch (IOException e) {
                                                                 e.printStackTrace();
                                                             } catch (JSONException e) {
                                                                 e.printStackTrace();
+                                                            } finally {
+                                                                setIndeterminate(false);
                                                             }
 
                                                         }
@@ -419,14 +559,66 @@ public class MainActivity extends Activity {
                                 @Override
                                 public void failure(RetrofitError error) {
                                     Log.e(TAG, "Failed: ", error);
+                                    setIndeterminate(false);
                                 }
                             });
                         }
                     });
 
                 }
+                else
+                {
+                    setIndeterminate(false);
+                }
             }
         });
 
+    }
+
+    private File getCachedInventoryFile(String accountName, String accountType) {
+        return new File(getCacheDir(), accountName + "-" + accountType + "-" + "inventory.json");
+    }
+
+    private void showInventory(String json) throws JSONException {
+        final List<InventoryItem> keys = IngressInventoryParser.parse(json);
+
+        Log.e(TAG, "keys.size = " + keys.size());
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                LatLngBounds.Builder bounds = new LatLngBounds.Builder();
+                ArrayList<InputPoint> points = new ArrayList<InputPoint>();
+
+                for (InventoryItem item : keys) {
+                    PortalKey key = (PortalKey)item;
+
+                    LatLng position = new LatLng(key.getLocation().latitude, key.getLocation().longitude);
+                    points.add(new InputPoint(position, key));
+
+                    bounds.include(key.getLocation());
+                }
+
+                mClusterkraf.replace(points);
+
+                LatLngBounds latLngBounds = bounds.build();
+
+                CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngBounds(latLngBounds, 100);
+
+                map.animateCamera(cameraUpdate);
+
+            }
+        });
+    }
+
+    void setIndeterminate(final boolean isIndeterminate) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                setProgressBarIndeterminate(isIndeterminate);
+                setProgressBarIndeterminateVisibility(isIndeterminate);
+            }
+        });
     }
 }
