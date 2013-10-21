@@ -1,12 +1,8 @@
 package org.nsdev.apps.linktester;
 
-import org.json.JSONObject;
-
 import retrofit.Callback;
 import retrofit.client.Response;
 import retrofit.http.Body;
-import retrofit.http.Field;
-import retrofit.http.FormUrlEncoded;
 import retrofit.http.GET;
 import retrofit.http.Header;
 import retrofit.http.Headers;
@@ -18,7 +14,7 @@ import retrofit.http.Query;
  */
 public interface InventoryServiceAsync {
     @POST("/rpc/playerUndecorated/getInventory")
-    @Headers({"content-type: text/plain;charset=UTF-8",
+    @Headers({"content-type: text/plain;charset=UTF-8", "accept-encoding: gzip"
     })
     public void getInventory(/*@Header("Cookie") String cookie, */@Header("X-XsrfToken") String token, @Body Object parameters, Callback<Response> inventoryResponse);
 

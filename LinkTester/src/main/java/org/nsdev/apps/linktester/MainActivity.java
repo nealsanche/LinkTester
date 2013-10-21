@@ -35,6 +35,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
@@ -73,6 +74,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.SSLContext;
 
@@ -83,26 +85,36 @@ import retrofit.client.OkClient;
 import retrofit.client.Response;
 import retrofit.converter.GsonConverter;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements InventoryFragment.InventoryFragmentProvider {
 
     private static final String HTTPS_SERVER_ADDRESS = "https://m-dot-betaspike.appspot.com";
     private static final String TAG = "LinkTester";
     public static final String ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER = "org.nsdev.apps.LinkTester.selectedUser";
     public static final String ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION = "org.nsdev.apps.LinkTester.mapLocation";
+    private static final int SOME_REQUEST_CODE = 999;
+    private static final int USER_INPUT_REQUIRED = 1001;
 
     private OkHttpClient okHttpClient;
-    private int SOME_REQUEST_CODE = 999;
     private CookieManager cookieManager;
     private String mXXsrfToken;
     private GoogleMap map;
+    private String authToken;
 
     private HashMap<Marker, PortalKey> markerKeys = new HashMap<Marker, PortalKey>();
 
     private Stack<LatLng> distanceStack = new Stack<LatLng>();
     private Clusterkraf mClusterkraf;
 
+    private ArrayList<Object> linkMapItems = new ArrayList<Object>();
+
     private AtomicBoolean dataLoaded = new AtomicBoolean(false);
     private LocationClient client;
+
+    private WeaponTotals weaponTotals;
+    private ResonatorTotals resonatorTotals;
+    private ModTotals modTotals;
+    private InventoryTotal inventoryTotal;
+    private int portalKeyCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,7 +165,7 @@ public class MainActivity extends Activity {
                     options.color(Color.BLUE);
                     options.geodesic(true);
 
-                    map.addPolyline(options);
+                    linkMapItems.add(map.addPolyline(options));
 
                     LatLng center = SphericalUtil.interpolate(first, second, 0.5);
 
@@ -163,7 +175,7 @@ public class MainActivity extends Activity {
                     midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_link_center));
                     midPointMarker.anchor(0.5f,0.5f);
 
-                    map.addMarker(midPointMarker);
+                    linkMapItems.add(map.addMarker(midPointMarker));
                 }
 
                 return false;
@@ -255,6 +267,11 @@ public class MainActivity extends Activity {
                         .remove("accountType")
                         .commit();
 
+                AccountManager accountManager = AccountManager.get(getApplicationContext());
+
+                if (authToken != null)
+                    accountManager.invalidateAuthToken(accountType, authToken);
+
                 finish();
             }
 
@@ -267,6 +284,18 @@ public class MainActivity extends Activity {
         else if (item.getItemId() == R.id.action_show_location) {
             if (map != null)
                 map.setMyLocationEnabled(!map.isMyLocationEnabled());
+        } else if (item.getItemId() == R.id.action_clear_links) {
+
+            for (Object o : linkMapItems) {
+
+                if (o instanceof Polyline) {
+                    ((Polyline) o).remove();
+                } else if (o instanceof Marker) {
+                    ((Marker) o).remove();
+                }
+            }
+
+            linkMapItems.clear();
         }
 
 
@@ -318,7 +347,7 @@ public class MainActivity extends Activity {
             cache = new HttpResponseCache(cacheDir, 4 * 1024 * 1024); // max 4MB downloads stored in cache
             okHttpClient.setResponseCache(cache);
         } catch (IOException e) {
-            Log.e(TAG, "Unable to create http cache.", e);
+            Log.v(TAG, "Unable to create http cache.", e);
         }
 
         Executor executor = Executors.newCachedThreadPool();
@@ -327,7 +356,7 @@ public class MainActivity extends Activity {
                 .setExecutors(executor, executor)
                 .setConverter(new GsonConverter(new Gson()))
                 .setClient(new OkClient(okHttpClient))
-                .setLogLevel(RestAdapter.LogLevel.FULL)
+                .setLogLevel(RestAdapter.LogLevel.NONE)
                 .setServer(HTTPS_SERVER_ADDRESS).build();
 
         return adapter.create(InventoryServiceAsync.class);
@@ -340,7 +369,7 @@ public class MainActivity extends Activity {
         if (requestCode == SOME_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 Bundle extras = data.getExtras();
-                Log.e(TAG, "Intent = " + extras);
+                Log.v(TAG, "Intent = " + extras);
 
                 String accountName = extras.getString(AccountManager.KEY_ACCOUNT_NAME, null);
                 String accountType = extras.getString(AccountManager.KEY_ACCOUNT_TYPE, null);
@@ -350,6 +379,9 @@ public class MainActivity extends Activity {
                     getInventoryForAccount(accountName, accountType);
                 }
             }
+        } else if (requestCode == USER_INPUT_REQUIRED) {
+            if (resultCode == RESULT_OK)
+                refreshInventory();
         }
     }
 
@@ -420,8 +452,6 @@ public class MainActivity extends Activity {
 
     private void getInventoryForAccount(final String accountName, final String accountType) {
 
-        setIndeterminate(true);
-
         AccountManager accountManager = AccountManager.get(getApplicationContext());
         Account account = new Account(accountName, accountType);
         accountManager.getAuthToken(account, "ah", false, new AccountManagerCallback<Bundle>() {
@@ -440,8 +470,9 @@ public class MainActivity extends Activity {
                 Intent intent = (Intent)bundle.get(AccountManager.KEY_INTENT);
                 if(intent != null) {
                     // User input required
-                    startActivity(intent);
+                    startActivityForResult(intent, USER_INPUT_REQUIRED);
                 } else {
+                    setIndeterminate(true);
                     onGetAuthToken(accountName, accountType, bundle);
                 }
             }
@@ -449,15 +480,15 @@ public class MainActivity extends Activity {
     }
 
     private void onGetAuthToken(final String accountName, final String accountType, Bundle bundle) {
-        Log.e(TAG, "onGetAuthToken" + bundle);
+        Log.v(TAG, "onGetAuthToken" + bundle);
 
-        String authtoken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
+        authToken = bundle.getString(AccountManager.KEY_AUTHTOKEN);
 
         final InventoryServiceAsync service = getService();
-        service.authenticat(authtoken, new Callback<Response>() {
+        service.authenticat(authToken, new Callback<Response>() {
             @Override
             public void success(Response response, Response response2) {
-                Log.e(TAG, "Success");
+                Log.v(TAG, "Success");
             }
 
             @Override
@@ -470,14 +501,14 @@ public class MainActivity extends Activity {
                     for (retrofit.client.Header header : error.getResponse().getHeaders())
                     {
                         if ("set-cookie".equals(header.getName())) {
-                            Log.e(TAG, "Header: " + header.getName() + " v= " + header.getValue());
+                            Log.v(TAG, "Header: " + header.getName() + " v= " + header.getValue());
                         }
                     }
 
                     try {
                         List<HttpCookie> httpCookies = cookieManager.getCookieStore().get(new URI(HTTPS_SERVER_ADDRESS));
                         for (HttpCookie cookie : httpCookies) {
-                            Log.e(TAG, "Cookie: " + cookie.getName() + " v = " + cookie.getValue());
+                            Log.v(TAG, "Cookie: " + cookie.getName() + " v = " + cookie.getValue());
                             if ("SACSID".equals(cookie.getName())) {
                                 foundSacsid = true;
                             }
@@ -499,7 +530,7 @@ public class MainActivity extends Activity {
                             service.getInventoryRaw(new Callback<Response>() {
                                 @Override
                                 public void success(Response r1, Response r2) {
-                                    Log.e(TAG, "Success!!!!");
+                                    Log.v(TAG, "Success!!!!");
                                     try {
                                         String body = IOUtils.toString(r2.getBody().in());
 
@@ -511,7 +542,7 @@ public class MainActivity extends Activity {
                                         if (m.find()) {
                                             String token = m.group(1);
 
-                                            Log.e(TAG, "Found X-XsrfToken: " + token);
+                                            Log.v(TAG, "Found X-XsrfToken: " + token);
                                             mXXsrfToken = token;
 
                                             runOnUiThread(new Runnable() {
@@ -521,10 +552,11 @@ public class MainActivity extends Activity {
                                                    service.getInventory(mXXsrfToken, new Params(), new Callback<Response>() {
                                                         @Override
                                                         public void success(Response inventory, Response response) {
-                                                            Log.e(TAG, "Inventory Success!");
+                                                            Log.v(TAG, "Inventory Success!");
 
                                                             try {
-                                                                String json = IOUtils.toString(inventory.getBody().in());
+                                                                // TODO: Determine dynamically if gzip was used. Here it is assumed.
+                                                                String json = IOUtils.toString(new GZIPInputStream(inventory.getBody().in()));
 
                                                                 // Cache the JSON
                                                                 File cachedInventory = getCachedInventoryFile(accountName, accountType);
@@ -544,7 +576,7 @@ public class MainActivity extends Activity {
 
                                                         @Override
                                                         public void failure(RetrofitError error) {
-                                                            Log.e(TAG, "Inventory failed!");
+                                                            Log.v(TAG, "Inventory failed!");
                                                         }
                                                     });
                                                 }
@@ -558,7 +590,7 @@ public class MainActivity extends Activity {
 
                                 @Override
                                 public void failure(RetrofitError error) {
-                                    Log.e(TAG, "Failed: ", error);
+                                    Log.v(TAG, "Failed: ", error);
                                     setIndeterminate(false);
                                 }
                             });
@@ -580,9 +612,7 @@ public class MainActivity extends Activity {
     }
 
     private void showInventory(String json) throws JSONException {
-        final List<InventoryItem> keys = IngressInventoryParser.parse(json);
-
-        Log.e(TAG, "keys.size = " + keys.size());
+        final List<InventoryItem> inventoryItemList = IngressInventoryParser.parse(json);
 
         runOnUiThread(new Runnable() {
             @Override
@@ -591,13 +621,29 @@ public class MainActivity extends Activity {
                 LatLngBounds.Builder bounds = new LatLngBounds.Builder();
                 ArrayList<InputPoint> points = new ArrayList<InputPoint>();
 
-                for (InventoryItem item : keys) {
-                    PortalKey key = (PortalKey)item;
+                portalKeyCount = 0;
 
-                    LatLng position = new LatLng(key.getLocation().latitude, key.getLocation().longitude);
-                    points.add(new InputPoint(position, key));
+                for (InventoryItem item : inventoryItemList) {
+                    if (item instanceof PortalKey) {
+                        PortalKey key = (PortalKey) item;
 
-                    bounds.include(key.getLocation());
+                        portalKeyCount += key.getKeyCount();
+
+                        LatLng position = new LatLng(key.getLocation().latitude, key.getLocation().longitude);
+                        points.add(new InputPoint(position, key));
+
+                        bounds.include(key.getLocation());
+                    } else if (item instanceof InventoryTotal) {
+                        inventoryTotal = (InventoryTotal) item;
+
+                        Toast.makeText(getApplicationContext(), String.format("Inventory Count: %d", inventoryTotal.getTotalInventoryCount()), Toast.LENGTH_LONG).show();
+                    } else if (item instanceof WeaponTotals) {
+                        weaponTotals = (WeaponTotals) item;
+                    } else if (item instanceof ModTotals) {
+                        modTotals = (ModTotals) item;
+                    } else if (item instanceof ResonatorTotals) {
+                        resonatorTotals = (ResonatorTotals) item;
+                    }
                 }
 
                 mClusterkraf.replace(points);
@@ -607,6 +653,9 @@ public class MainActivity extends Activity {
                 CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngBounds(latLngBounds, 100);
 
                 map.animateCamera(cameraUpdate);
+
+                InventoryFragment inventoryFragment = (InventoryFragment) getFragmentManager().findFragmentById(R.id.inventory);
+                inventoryFragment.updateFragment();
 
             }
         });
@@ -620,5 +669,30 @@ public class MainActivity extends Activity {
                 setProgressBarIndeterminateVisibility(isIndeterminate);
             }
         });
+    }
+
+    @Override
+    public WeaponTotals getWeaponTotals() {
+        return weaponTotals;
+    }
+
+    @Override
+    public InventoryTotal getInventoryTotal() {
+        return inventoryTotal;
+    }
+
+    @Override
+    public ModTotals getModTotals() {
+        return modTotals;
+    }
+
+    @Override
+    public ResonatorTotals getResonatorTotals() {
+        return resonatorTotals;
+    }
+
+    @Override
+    public int getPortalKeyCount() {
+        return portalKeyCount;
     }
 }

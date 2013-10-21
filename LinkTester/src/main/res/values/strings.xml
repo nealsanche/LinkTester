@@ -7,5 +7,13 @@
     <string name="action_signout">Sign out</string>
     <string name="action_refresh">Refresh</string>
     <string name="action_show_location">Show Your Location</string>
+    <string name="action_clear_links">Clear Links</string>
+    <string name="header_ada">ADA</string>
+    <string name="header_jarvis">Jarvis</string>
+    <string name="header_portal_keys">Portal Keys</string>
+    <string name="header_total">Total</string>
+    <string name="header_common">C</string>
+    <string name="header_rare">R</string>
+    <string name="header_very_rare">VR</string>
 
 </resources>

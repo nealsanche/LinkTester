@@ -5,4 +5,18 @@
     <dimen name="cluster_text_size_medium">12sp</dimen>
     <dimen name="cluster_text_size_small">8sp</dimen>
     <dimen name="cluster_text_size_large">18sp</dimen>
+
+
+    <dimen name="misc_first_column_width">100dp</dimen>
+    <dimen name="misc_second_column_width">90dp</dimen>
+    <dimen name="misc_third_column_width">100dp</dimen>
+    <dimen name="misc_fourth_column_width">60dp</dimen>
+
+    <dimen name="xmp_column">38dp</dimen>
+    <dimen name="table_section_break">20dp</dimen>
+    <dimen name="first_column">30dp</dimen>
+    <dimen name="first_row_break">5dp</dimen>
+    <dimen name="mod_label_width">170dp</dimen>
+    <dimen name="mod_column_width">60dp</dimen>
+    <dimen name="inventory_table_width">370dp</dimen>
 </resources>

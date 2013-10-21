@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<TableRow xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <TableRow
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_column="0">
+
+        <TextView
+            android:id="@+id/mod_name"
+            android:layout_width="@dimen/mod_label_width"
+            android:layout_height="wrap_content"
+            android:textAppearance="@android:style/TextAppearance.Small"
+            tools:text="Modname"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:layout_column="0" />
+
+        <TextView
+            android:id="@+id/common_count"
+            android:layout_width="@dimen/mod_column_width"
+            android:layout_height="wrap_content"
+            android:textAppearance="@android:style/TextAppearance.Small"
+            android:gravity="center"
+            tools:text="0"
+            android:layout_column="0" />
+
+        <TextView
+            android:id="@+id/rare_count"
+            android:layout_width="@dimen/mod_column_width"
+            android:layout_height="wrap_content"
+            android:textAppearance="@android:style/TextAppearance.Small"
+            android:gravity="center"
+            tools:text="0"
+            android:layout_column="0" />
+
+        <TextView
+            android:id="@+id/very_rare_count"
+            android:layout_width="@dimen/mod_column_width"
+            android:layout_height="wrap_content"
+            android:textAppearance="@android:style/TextAppearance.Small"
+            android:gravity="center"
+            tools:text="0"
+            android:layout_column="0" />
+
+    </TableRow>
+</TableRow>
