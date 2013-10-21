@@ -16,7 +16,7 @@ public interface InventoryServiceAsync {
     @POST("/rpc/playerUndecorated/getInventory")
     @Headers({"content-type: text/plain;charset=UTF-8", "accept-encoding: gzip"
     })
-    public void getInventory(/*@Header("Cookie") String cookie, */@Header("X-XsrfToken") String token, @Body Object parameters, Callback<Response> inventoryResponse);
+    public void getInventory(@Header("X-XsrfToken") String token, @Body Object parameters, Callback<Response> inventoryResponse);
 
     @GET("/rpc/playerUndecorated/getInventory?json=")
     public void getInventoryRaw(Callback<Response> response);

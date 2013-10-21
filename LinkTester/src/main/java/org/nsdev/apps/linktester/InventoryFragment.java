@@ -23,6 +23,8 @@ public class InventoryFragment extends Fragment {
 
         ResonatorTotals getResonatorTotals();
 
+        PowerCubeTotals getPowerCubeTotals();
+
         int getPortalKeyCount();
     }
 
@@ -39,6 +41,23 @@ public class InventoryFragment extends Fragment {
         updateModTotals(provider.getModTotals());
         updateResonatorTotals(provider.getResonatorTotals());
         updatePortalKeyCount(provider.getPortalKeyCount());
+        updatePowerCubeTotals(provider.getPowerCubeTotals());
+    }
+
+    int[] cubeColumnIds = {R.id.l1_cube_count, R.id.l2_cube_count, R.id.l3_cube_count, R.id.l4_cube_count, R.id.l5_cube_count, R.id.l6_cube_count, R.id.l7_cube_count, R.id.l8_cube_count};
+    private void updatePowerCubeTotals(PowerCubeTotals powerCubeTotals) {
+
+        for (int i = 1; i <= 8; i++) {
+            int id = cubeColumnIds[i - 1];
+
+            TextView count = (TextView) getView().findViewById(id);
+            if (powerCubeTotals.getPowerCubes().containsKey(i)) {
+                count.setText(String.valueOf(powerCubeTotals.getPowerCubes().get(i)));
+            } else {
+                count.setText("0");
+            }
+        }
+
     }
 
     private void updatePortalKeyCount(int portalKeyCount) {

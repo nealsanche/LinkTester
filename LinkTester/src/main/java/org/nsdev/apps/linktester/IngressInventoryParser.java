@@ -1,5 +1,7 @@
 package org.nsdev.apps.linktester;
 
+import android.util.Log;
+
 import com.google.android.gms.maps.model.LatLng;
 
 import org.json.JSONArray;
@@ -28,6 +30,9 @@ public class IngressInventoryParser {
 
         ModTotals mods = new ModTotals();
         items.add(mods);
+
+        PowerCubeTotals powercubes = new PowerCubeTotals();
+        items.add(powercubes);
 
         WeaponTotals weapons = new WeaponTotals();
         items.add(weapons);
@@ -97,6 +102,14 @@ public class IngressInventoryParser {
                     } else {
                         Integer value = resonators.getResonators().get(level);
                         resonators.getResonators().put(level, value.intValue() + 1);
+                    }
+                } else if (resourceType.equals("POWER_CUBE")) {
+                    if (!powercubes.getPowerCubes().containsKey(level)) {
+                        powercubes.getPowerCubes().put(level, 1);
+
+                    } else {
+                        Integer value = powercubes.getPowerCubes().get(level);
+                        powercubes.getPowerCubes().put(level, value.intValue() + 1);
                     }
                 }
             } else if (item.has("modResource")) {

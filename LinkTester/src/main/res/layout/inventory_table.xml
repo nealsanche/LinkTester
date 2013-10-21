@@ -290,6 +290,99 @@
 
     <TableRow
         android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <TableRow
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:layout_column="0">
+
+            <TextView
+                android:layout_width="@dimen/first_column"
+                android:layout_height="wrap_content"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:textStyle="bold"
+                android:gravity="left"
+                android:text="PC"
+                android:layout_column="0" />
+
+            <TextView
+                android:id="@+id/l1_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="1" />
+
+            <TextView
+                android:id="@+id/l2_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="2" />
+
+            <TextView
+                android:id="@+id/l3_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="3" />
+
+            <TextView
+                android:id="@+id/l4_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="4" />
+
+            <TextView
+                android:id="@+id/l5_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="5" />
+
+            <TextView
+                android:id="@+id/l6_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="6" />
+
+            <TextView
+                android:id="@+id/l7_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="7" />
+
+            <TextView
+                android:id="@+id/l8_cube_count"
+                android:layout_height="wrap_content"
+                android:layout_width="@dimen/xmp_column"
+                android:textAppearance="@android:style/TextAppearance.Small"
+                android:gravity="right"
+                tools:text="1100"
+                android:layout_column="8" />
+
+        </TableRow>
+    </TableRow>
+
+    <TableRow
+        android:layout_width="fill_parent"
         android:layout_marginTop="@dimen/table_section_break"
         android:layout_height="fill_parent">
 

@@ -84,6 +84,7 @@ import retrofit.RetrofitError;
 import retrofit.client.OkClient;
 import retrofit.client.Response;
 import retrofit.converter.GsonConverter;
+import retrofit.http.Header;
 
 public class MainActivity extends Activity implements InventoryFragment.InventoryFragmentProvider {
 
@@ -115,6 +116,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     private ModTotals modTotals;
     private InventoryTotal inventoryTotal;
     private int portalKeyCount;
+    private PowerCubeTotals powerCubeTotals;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -356,7 +358,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                 .setExecutors(executor, executor)
                 .setConverter(new GsonConverter(new Gson()))
                 .setClient(new OkClient(okHttpClient))
-                .setLogLevel(RestAdapter.LogLevel.NONE)
+                .setLogLevel(RestAdapter.LogLevel.FULL)
                 .setServer(HTTPS_SERVER_ADDRESS).build();
 
         return adapter.create(InventoryServiceAsync.class);
@@ -555,9 +557,13 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                                                             Log.v(TAG, "Inventory Success!");
 
                                                             try {
-                                                                // TODO: Determine dynamically if gzip was used. Here it is assumed.
-                                                                String json = IOUtils.toString(new GZIPInputStream(inventory.getBody().in()));
+                                                                String json = null;
+                                                                if (isGzipEncoded(response)) {
+                                                                    json = IOUtils.toString(new GZIPInputStream(inventory.getBody().in()));
 
+                                                                } else {
+                                                                    json = IOUtils.toString(inventory.getBody().in());
+                                                                }
                                                                 // Cache the JSON
                                                                 File cachedInventory = getCachedInventoryFile(accountName, accountType);
                                                                 IOUtils.write(json, new FileOutputStream(cachedInventory));
@@ -607,6 +613,17 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
 
     }
 
+    private boolean isGzipEncoded(Response response) {
+        for (retrofit.client.Header header : response.getHeaders()) {
+            if (header.getName() != null && "content-encoding".equals(header.getName().toLowerCase())) {
+                if (header.getValue() != null && "gzip".equals(header.getValue().toLowerCase())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private File getCachedInventoryFile(String accountName, String accountType) {
         return new File(getCacheDir(), accountName + "-" + accountType + "-" + "inventory.json");
     }
@@ -635,7 +652,6 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                         bounds.include(key.getLocation());
                     } else if (item instanceof InventoryTotal) {
                         inventoryTotal = (InventoryTotal) item;
-
                         Toast.makeText(getApplicationContext(), String.format("Inventory Count: %d", inventoryTotal.getTotalInventoryCount()), Toast.LENGTH_LONG).show();
                     } else if (item instanceof WeaponTotals) {
                         weaponTotals = (WeaponTotals) item;
@@ -643,6 +659,8 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                         modTotals = (ModTotals) item;
                     } else if (item instanceof ResonatorTotals) {
                         resonatorTotals = (ResonatorTotals) item;
+                    } else if (item instanceof PowerCubeTotals) {
+                        powerCubeTotals = (PowerCubeTotals)item;
                     }
                 }
 
@@ -689,6 +707,11 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     @Override
     public ResonatorTotals getResonatorTotals() {
         return resonatorTotals;
+    }
+
+    @Override
+    public PowerCubeTotals getPowerCubeTotals() {
+        return powerCubeTotals;
     }
 
     @Override
