@@ -99,10 +99,13 @@ public class InventoryFragment extends Fragment {
     }
 
     private void processModTotals(ModTotals modTotals, HashMap<String, View> rows, String rarity, int columnId) {
-        for (String key : modTotals.getMods().get(rarity).keySet()) {
-            View v = rows.get(key);
-            TextView t = (TextView) v.findViewById(columnId);
-            t.setText(String.valueOf(modTotals.getMods().get(rarity).get(key)));
+        if (modTotals.getMods().containsKey(rarity)) {
+            final HashMap<String, Integer> stringIntegerHashMap = modTotals.getMods().get(rarity);
+            for (String key : stringIntegerHashMap.keySet()) {
+                View v = rows.get(key);
+                TextView t = (TextView) v.findViewById(columnId);
+                t.setText(String.valueOf(stringIntegerHashMap.get(key)));
+            }
         }
     }
 
