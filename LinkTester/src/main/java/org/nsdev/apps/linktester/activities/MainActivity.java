@@ -1,4 +1,4 @@
-package org.nsdev.apps.linktester;
+package org.nsdev.apps.linktester.activities;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
@@ -13,16 +13,18 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.KeyEvent;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.Window;
 import android.view.animation.AnticipateOvershootInterpolator;
 import android.widget.Toast;
 
-import com.google.android.gms.common.AccountPicker;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.location.LocationClient;
@@ -48,10 +50,26 @@ import com.twotoasters.clusterkraf.Clusterkraf;
 import com.twotoasters.clusterkraf.InputPoint;
 import com.twotoasters.clusterkraf.OnCameraChangeDownstreamListener;
 import com.twotoasters.clusterkraf.OnInfoWindowClickDownstreamListener;
+import com.twotoasters.clusterkraf.OnMarkerClickDownstreamListener;
 import com.twotoasters.clusterkraf.Options;
 
 import org.apache.commons.io.IOUtils;
 import org.json.JSONException;
+import org.nsdev.apps.linktester.PortalMarkerOptionsChooser;
+import org.nsdev.apps.linktester.R;
+import org.nsdev.apps.linktester.inventory.IngressInventoryParser;
+import org.nsdev.apps.linktester.inventory.InventoryFragment;
+import org.nsdev.apps.linktester.inventory.InventoryItem;
+import org.nsdev.apps.linktester.inventory.InventoryServiceAsync;
+import org.nsdev.apps.linktester.inventory.InventoryTotal;
+import org.nsdev.apps.linktester.inventory.ModTotals;
+import org.nsdev.apps.linktester.inventory.Params;
+import org.nsdev.apps.linktester.inventory.PortalKey;
+import org.nsdev.apps.linktester.inventory.PowerCubeTotals;
+import org.nsdev.apps.linktester.inventory.ResonatorTotals;
+import org.nsdev.apps.linktester.inventory.WeaponTotals;
+import org.nsdev.apps.linktester.model.DatabaseManager;
+import org.nsdev.apps.linktester.model.Portal;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -121,6 +139,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     private double mLatitudeFromIntent;
     private double mLongitudeFromIntent;
     private String mNameFromIntent;
+    private DatabaseManager mDatabaseManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,6 +148,8 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mDatabaseManager = new DatabaseManager(this);
 
         // Get a handle to the Map Fragment
         map = ((MapFragment) getFragmentManager()
@@ -152,6 +173,15 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                 mNameFromIntent = matcher.group(3);
 
                 Log.e("NAS", String.format("%f %f %s", mLatitudeFromIntent, mLongitudeFromIntent, mNameFromIntent));
+
+                Portal p = new Portal();
+                p.setName(mNameFromIntent);
+                p.setLatitude(mLatitudeFromIntent);
+                p.setLongitude(mLongitudeFromIntent);
+                mDatabaseManager.save(p);
+
+                Toast.makeText(getApplicationContext(), "Saved " + mNameFromIntent, Toast.LENGTH_SHORT).show();
+                finish();
             }
 
         }
@@ -169,42 +199,57 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
         options.setTransitionInterpolator(new AnticipateOvershootInterpolator());
         options.setMarkerOptionsChooser(new PortalMarkerOptionsChooser(this));
         options.setSinglePointClickBehavior(Options.SinglePointClickBehavior.SHOW_INFO_WINDOW_NO_CENTER);
+        options.setOnMarkerClickDownstreamListener(new OnMarkerClickDownstreamListener() {
+            @Override
+            public boolean onMarkerClick(final Marker marker, final ClusterPoint clusterPoint) {
+
+                if (clusterPoint != null && clusterPoint.size() == 1) {
+
+                    startActionMode(new ActionMode.Callback() {
+                        @Override
+                        public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
+                            // Inflate a menu resource providing context menu items
+                            MenuInflater inflater = actionMode.getMenuInflater();
+                            inflater.inflate(R.menu.portal_actions, menu);
+                            return true;
+                        }
+
+                        @Override
+                        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                            if (item.getItemId() == R.id.ic_action_link) {
+                                linkToOrFromMarker(marker, clusterPoint);
+                                mode.finish();
+                                return true;
+                            } else if (item.getItemId() == R.id.ic_portal_delete) {
+                                Portal p = (Portal) clusterPoint.getPointAtOffset(0).getTag();
+                                mDatabaseManager.delete(p);
+                                reloadPortals();
+                                mode.finish();
+                                return true;
+                            }
+                            return false;
+                        }
+
+                        @Override
+                        public void onDestroyActionMode(ActionMode mode) {
+
+                        }
+                    });
+                }
+
+                return false;
+            }
+        });
         options.setOnInfoWindowClickDownstreamListener(new OnInfoWindowClickDownstreamListener() {
             @Override
             public boolean onInfoWindowClick(Marker marker, ClusterPoint clusterPoint) {
 
-                if (clusterPoint != null)
-                    distanceStack.push(marker.getPosition());
-
-                if (distanceStack.size() == 2) {
-                    LatLng first = distanceStack.pop();
-                    LatLng second = distanceStack.pop();
-
-                    float[] results = new float[2];
-                    Location.distanceBetween(first.latitude, first.longitude, second.latitude, second.longitude, results);
-
-                    String distance = String.format("Distance: %.2f km", results[0] / 1000.0);
-
-                    Toast.makeText(getApplicationContext(), distance, Toast.LENGTH_LONG).show();
-
-                    PolylineOptions options = new PolylineOptions();
-                    options.add(first);
-                    options.add(second);
-                    options.color(Color.BLUE);
-                    options.geodesic(true);
-
-                    linkMapItems.add(map.addPolyline(options));
-
-                    LatLng center = SphericalUtil.interpolate(first, second, 0.5);
-
-                    MarkerOptions midPointMarker = new MarkerOptions();
-                    midPointMarker.position(center);
-                    midPointMarker.title(distance);
-                    midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_link_center));
-                    midPointMarker.anchor(0.5f, 0.5f);
-
-                    linkMapItems.add(map.addMarker(midPointMarker));
-                }
+                linkToOrFromMarker(marker, clusterPoint);
 
                 return false;
             }
@@ -215,6 +260,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
             public void onCameraChange(CameraPosition cameraPosition) {
                 if (!dataLoaded.getAndSet(true)) {
 
+                    /*
                     if (isAccountSaved()) {
                         // Load cached data, then query for more current data
                         startLoadingCachedInventoryThenRefresh();
@@ -224,12 +270,9 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                                 false, null, null, null, null);
                         startActivityForResult(intent, SOME_REQUEST_CODE);
                     }
+                    */
 
-                    if (mNameFromIntent != null) {
-                        final LatLng latLng = new LatLng(mLatitudeFromIntent, mLongitudeFromIntent);
-                        mClusterkraf.add(new InputPoint(latLng, new PortalKey(latLng, mNameFromIntent, "", null, null)));
-                    }
-
+                    reloadPortals();
                 }
 
                 SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION, Context.MODE_PRIVATE);
@@ -245,6 +288,41 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
         mClusterkraf = new Clusterkraf(map, options, null);
 
 
+    }
+
+    private void linkToOrFromMarker(Marker marker, ClusterPoint clusterPoint) {
+        if (clusterPoint != null)
+            distanceStack.push(marker.getPosition());
+
+        if (distanceStack.size() == 2) {
+            LatLng first = distanceStack.pop();
+            LatLng second = distanceStack.pop();
+
+            float[] results = new float[2];
+            Location.distanceBetween(first.latitude, first.longitude, second.latitude, second.longitude, results);
+
+            String distance = String.format("Distance: %.2f km", results[0] / 1000.0);
+
+            Toast.makeText(getApplicationContext(), distance, Toast.LENGTH_LONG).show();
+
+            PolylineOptions options = new PolylineOptions();
+            options.add(first);
+            options.add(second);
+            options.color(Color.BLUE);
+            options.geodesic(true);
+
+            linkMapItems.add(map.addPolyline(options));
+
+            LatLng center = SphericalUtil.interpolate(first, second, 0.5);
+
+            MarkerOptions midPointMarker = new MarkerOptions();
+            midPointMarker.position(center);
+            midPointMarker.title(distance);
+            midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_link_center));
+            midPointMarker.anchor(0.5f, 0.5f);
+
+            linkMapItems.add(map.addMarker(midPointMarker));
+        }
     }
 
     private void startLoadingCachedInventoryThenRefresh() {
@@ -285,6 +363,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 
+        /*
         if (item.getItemId() == R.id.action_signout) {
 
             SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_SELECTED_USER, Context.MODE_PRIVATE);
@@ -311,7 +390,9 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
 
             refreshInventory();
 
-        } else if (item.getItemId() == R.id.action_show_location) {
+        } else
+        */
+        if (item.getItemId() == R.id.action_show_location) {
             if (map != null)
                 map.setMyLocationEnabled(!map.isMyLocationEnabled());
         } else if (item.getItemId() == R.id.action_clear_links) {
@@ -326,6 +407,14 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
             }
 
             linkMapItems.clear();
+        } else if (item.getItemId() == R.id.action_clear_database) {
+
+            List<Portal> portals = mDatabaseManager.getAll();
+
+            for (Portal portal : portals) {
+                mDatabaseManager.delete(portal);
+                mClusterkraf.replace(new ArrayList<InputPoint>());
+            }
         }
 
 
@@ -340,6 +429,32 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     @Override
     protected void onResume() {
         super.onResume();
+
+        reloadPortals();
+    }
+
+    private void reloadPortals() {
+
+        AsyncTask<Void, Void, ArrayList<InputPoint>> task = new AsyncTask<Void, Void, ArrayList<InputPoint>>() {
+            @Override
+            protected ArrayList<InputPoint> doInBackground(Void... params) {
+                ArrayList<InputPoint> pointsToAdd = new ArrayList<InputPoint>();
+
+                for (Portal p : mDatabaseManager.getAll()) {
+                    final LatLng latLng = new LatLng(p.getLatitude(), p.getLongitude());
+                    pointsToAdd.add(new InputPoint(latLng, p));
+                }
+                return pointsToAdd;
+            }
+
+            @Override
+            protected void onPostExecute(ArrayList<InputPoint> inputPoints) {
+                super.onPostExecute(inputPoints);
+                mClusterkraf.replace(inputPoints);
+            }
+        };
+
+        task.execute();
     }
 
     public InventoryServiceAsync getService() {

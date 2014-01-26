@@ -15,5 +15,8 @@
     <string name="header_common">C</string>
     <string name="header_rare">R</string>
     <string name="header_very_rare">VR</string>
+    <string name="action_clear_database">Clear Database</string>
+    <string name="ic_action_link_title">Link</string>
+    <string name="ic_action_delete_title">Delete Portal</string>
 
 </resources>

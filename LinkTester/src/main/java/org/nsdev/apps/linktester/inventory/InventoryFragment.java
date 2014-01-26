@@ -1,4 +1,4 @@
-package org.nsdev.apps.linktester;
+package org.nsdev.apps.linktester.inventory;
 
 import android.app.Fragment;
 import android.os.Bundle;
@@ -6,6 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import org.nsdev.apps.linktester.R;
 
 import java.util.HashMap;
 
@@ -45,6 +47,7 @@ public class InventoryFragment extends Fragment {
     }
 
     int[] cubeColumnIds = {R.id.l1_cube_count, R.id.l2_cube_count, R.id.l3_cube_count, R.id.l4_cube_count, R.id.l5_cube_count, R.id.l6_cube_count, R.id.l7_cube_count, R.id.l8_cube_count};
+
     private void updatePowerCubeTotals(PowerCubeTotals powerCubeTotals) {
 
         for (int i = 1; i <= 8; i++) {

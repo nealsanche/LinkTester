@@ -63,4 +63,6 @@ dependencies {
     compile 'com.nineoldandroids:library:2.4.0'
 
     compile 'com.j256.ormlite:ormlite-android:4.48'
+
+    compile 'com.github.davidmoten:geo:0.6.5'
 }

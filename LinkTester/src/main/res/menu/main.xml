@@ -11,6 +11,12 @@
         android:orderInCategory="100"
         android:icon="@drawable/ic_action_content_discard"
         android:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_clear_database"
+        android:title="@string/action_clear_database"
+        android:orderInCategory="101"
+        android:showAsAction="never" />
+    <!--
     <item android:id="@+id/action_signout"
         android:title="@string/action_signout"
         android:orderInCategory="101"
@@ -20,6 +26,7 @@
         android:orderInCategory="98"
         android:icon="@drawable/ic_action_navigation_refresh"
         android:showAsAction="ifRoom" />
+    -->
     <item android:id="@+id/action_show_location"
         android:title="@string/action_show_location"
         android:icon="@drawable/ic_action_location_place"

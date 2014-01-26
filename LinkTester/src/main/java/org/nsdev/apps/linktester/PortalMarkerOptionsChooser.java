@@ -11,13 +11,14 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Build;
-import android.util.DisplayMetrics;
 
 import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.twotoasters.clusterkraf.ClusterPoint;
 import com.twotoasters.clusterkraf.MarkerOptionsChooser;
+
+import org.nsdev.apps.linktester.model.Portal;
 
 import java.lang.ref.WeakReference;
 
@@ -73,31 +74,19 @@ public class PortalMarkerOptionsChooser extends MarkerOptionsChooser {
                 int totalCount = countAllPortals(clusterPoint);
                 icon = BitmapDescriptorFactory.fromBitmap(getClusterBitmap(res, R.drawable.ic_portal, totalCount));
             } else {
-                PortalKey key = (PortalKey)clusterPoint.getPointAtOffset(0).getTag();
-                title = key.getPortalTitle();
-                snippet = key.getPortalAddress();
-                if (key.getKeyCount() > 1) {
-                    icon = BitmapDescriptorFactory.fromBitmap(getClusterBitmap(res, R.drawable.ic_portal, key.getKeyCount()));
-                }
-                else
-                {
-                    icon = BitmapDescriptorFactory.fromResource(R.drawable.ic_portal);
-                }
+                Portal key = (Portal) clusterPoint.getPointAtOffset(0).getTag();
+                title = key.getName();
+                icon = BitmapDescriptorFactory.fromResource(R.drawable.ic_portal);
             }
             markerOptions.icon(icon);
             markerOptions.title(title);
-            markerOptions.snippet(snippet);
             markerOptions.anchor(0.5f, 0.5f);
             markerOptions.infoWindowAnchor(0.5f,0f);
         }
     }
 
     private int countAllPortals(ClusterPoint clusterPoint) {
-        int total = 0;
-        for (int i = 0; i < clusterPoint.size(); i++) {
-            total += ((PortalKey)clusterPoint.getPointAtOffset(i).getTag()).getKeyCount();
-        }
-        return total;
+        return clusterPoint.size();
     }
 
     @SuppressLint("NewApi")

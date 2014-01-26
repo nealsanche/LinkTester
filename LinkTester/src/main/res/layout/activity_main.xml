@@ -14,7 +14,7 @@
     <fragment
         android:id="@+id/inventory"
         android:layout_gravity="end"
-        android:name="org.nsdev.apps.linktester.InventoryFragment"
+        android:name="org.nsdev.apps.linktester.inventory.InventoryFragment"
         android:layout_width="@dimen/inventory_table_width"
         android:layout_height="match_parent"
         tools:layout="@layout/inventory_table" />

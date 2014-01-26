@@ -1,4 +1,4 @@
-package org.nsdev.apps.linktester;
+package org.nsdev.apps.linktester.inventory;
 
 import java.util.HashMap;
 

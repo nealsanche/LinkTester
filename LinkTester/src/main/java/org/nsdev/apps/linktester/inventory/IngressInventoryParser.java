@@ -1,6 +1,4 @@
-package org.nsdev.apps.linktester;
-
-import android.util.Log;
+package org.nsdev.apps.linktester.inventory;
 
 import com.google.android.gms.maps.model.LatLng;
 
@@ -40,8 +38,7 @@ public class IngressInventoryParser {
         ResonatorTotals resonators = new ResonatorTotals();
         items.add(resonators);
 
-        for (int i = 0; i < inventory.length(); i++)
-        {
+        for (int i = 0; i < inventory.length(); i++) {
             JSONArray itemArray = inventory.getJSONArray(i);
 
             String itemId = itemArray.getString(0);
@@ -139,12 +136,12 @@ public class IngressInventoryParser {
 
     private static LatLng parsePortalLocation(String portalLocation) {
         String[] parts = portalLocation.split(",");
-        long latE6 = Long.parseLong(parts[0],16);
-        long lonE6 = Long.parseLong(parts[1],16);
+        long latE6 = Long.parseLong(parts[0], 16);
+        long lonE6 = Long.parseLong(parts[1], 16);
 
         if (latE6 >= 2147483648L) latE6 -= 4294967296L;
         if (lonE6 >= 2147483648L) lonE6 -= 4294967296L;
 
-        return new LatLng((double)latE6 / 1E6, (double)lonE6 / 1E6);
+        return new LatLng((double) latE6 / 1E6, (double) lonE6 / 1E6);
     }
 }

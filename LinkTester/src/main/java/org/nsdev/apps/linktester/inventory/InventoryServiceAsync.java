@@ -1,4 +1,4 @@
-package org.nsdev.apps.linktester;
+package org.nsdev.apps.linktester.inventory;
 
 import retrofit.Callback;
 import retrofit.client.Response;
