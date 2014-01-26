@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -84,7 +85,6 @@ import retrofit.RetrofitError;
 import retrofit.client.OkClient;
 import retrofit.client.Response;
 import retrofit.converter.GsonConverter;
-import retrofit.http.Header;
 
 public class MainActivity extends Activity implements InventoryFragment.InventoryFragmentProvider {
 
@@ -117,6 +117,10 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
     private InventoryTotal inventoryTotal;
     private int portalKeyCount;
     private PowerCubeTotals powerCubeTotals;
+    private int mZoom;
+    private double mLatitudeFromIntent;
+    private double mLongitudeFromIntent;
+    private String mNameFromIntent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,6 +133,28 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
         // Get a handle to the Map Fragment
         map = ((MapFragment) getFragmentManager()
                 .findFragmentById(R.id.map)).getMap();
+
+        if (Intent.ACTION_VIEW.equals(getIntent().getAction())) {
+            // We're being asked to view a map location
+
+            Uri data = getIntent().getData();
+            String q = data.getQueryParameter("q");
+            String z = data.getQueryParameter("z");
+
+            mZoom = Integer.parseInt(z);
+
+            Pattern pattern = Pattern.compile("loc:([^,]*),([^ ]*)\\s*\\(([^\\)]*)\\)");
+
+            final Matcher matcher = pattern.matcher(q);
+            if (matcher.find()) {
+                mLatitudeFromIntent = Double.parseDouble(matcher.group(1));
+                mLongitudeFromIntent = Double.parseDouble(matcher.group(2));
+                mNameFromIntent = matcher.group(3);
+
+                Log.e("NAS", String.format("%f %f %s", mLatitudeFromIntent, mLongitudeFromIntent, mNameFromIntent));
+            }
+
+        }
 
         map.setMyLocationEnabled(false);
 
@@ -155,7 +181,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                     LatLng second = distanceStack.pop();
 
                     float[] results = new float[2];
-                    Location.distanceBetween(first.latitude,first.longitude,second.latitude,second.longitude, results);
+                    Location.distanceBetween(first.latitude, first.longitude, second.latitude, second.longitude, results);
 
                     String distance = String.format("Distance: %.2f km", results[0] / 1000.0);
 
@@ -175,7 +201,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                     midPointMarker.position(center);
                     midPointMarker.title(distance);
                     midPointMarker.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_link_center));
-                    midPointMarker.anchor(0.5f,0.5f);
+                    midPointMarker.anchor(0.5f, 0.5f);
 
                     linkMapItems.add(map.addMarker(midPointMarker));
                 }
@@ -192,23 +218,27 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                     if (isAccountSaved()) {
                         // Load cached data, then query for more current data
                         startLoadingCachedInventoryThenRefresh();
-                    }
-                    else
-                    {
+                    } else {
                         // Prompt for the account
                         Intent intent = AccountPicker.newChooseAccountIntent(null, null, new String[]{"com.google"},
                                 false, null, null, null, null);
                         startActivityForResult(intent, SOME_REQUEST_CODE);
                     }
 
+                    if (mNameFromIntent != null) {
+                        final LatLng latLng = new LatLng(mLatitudeFromIntent, mLongitudeFromIntent);
+                        mClusterkraf.add(new InputPoint(latLng, new PortalKey(latLng, mNameFromIntent, "", null, null)));
+                    }
+
                 }
 
                 SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION, Context.MODE_PRIVATE);
 
-                prefs.edit().putLong("latitude", (long)(cameraPosition.target.latitude * 1E6))
-                        .putLong("longitude", (long)(cameraPosition.target.longitude * 1E6))
+                prefs.edit().putLong("latitude", (long) (cameraPosition.target.latitude * 1E6))
+                        .putLong("longitude", (long) (cameraPosition.target.longitude * 1E6))
                         .putFloat("zoom", cameraPosition.zoom)
                         .commit();
+
             }
         });
 
@@ -277,13 +307,11 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                 finish();
             }
 
-        }
-        else if (item.getItemId() == R.id.action_refresh) {
+        } else if (item.getItemId() == R.id.action_refresh) {
 
             refreshInventory();
 
-        }
-        else if (item.getItemId() == R.id.action_show_location) {
+        } else if (item.getItemId() == R.id.action_show_location) {
             if (map != null)
                 map.setMyLocationEnabled(!map.isMyLocationEnabled());
         } else if (item.getItemId() == R.id.action_clear_links) {
@@ -392,14 +420,12 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
         SharedPreferences prefs = getSharedPreferences(ORG_NSDEV_APPS_LINK_TESTER_MAP_LOCATION, Context.MODE_PRIVATE);
 
         if (prefs.contains("latitude") && prefs.contains("longitude")) {
-            double latitude = (double)prefs.getLong("latitude",0) / 1E6;
-            double longitude = (double)prefs.getLong("longitude",0) / 1E6;
+            double latitude = (double) prefs.getLong("latitude", 0) / 1E6;
+            double longitude = (double) prefs.getLong("longitude", 0) / 1E6;
             float zoom = prefs.getFloat("zoom", 14);
 
             map.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
-        }
-        else
-        {
+        } else {
             // Move the map to the user's current coarse location
             client = new LocationClient(this, new GooglePlayServicesClient.ConnectionCallbacks() {
                 @Override
@@ -418,7 +444,8 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                 public void onConnectionFailed(ConnectionResult connectionResult) {
 
                 }
-            });
+            }
+            );
         }
     }
 
@@ -469,8 +496,8 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                 } catch (AuthenticatorException e) {
                     e.printStackTrace();
                 }
-                Intent intent = (Intent)bundle.get(AccountManager.KEY_INTENT);
-                if(intent != null) {
+                Intent intent = (Intent) bundle.get(AccountManager.KEY_INTENT);
+                if (intent != null) {
                     // User input required
                     startActivityForResult(intent, USER_INPUT_REQUIRED);
                 } else {
@@ -497,11 +524,9 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
             public void failure(RetrofitError error) {
 
                 boolean foundSacsid = false;
-                if (error.getResponse().getStatus() == 302)
-                {
+                if (error.getResponse().getStatus() == 302) {
                     // An error is expected here, a 302 redirect
-                    for (retrofit.client.Header header : error.getResponse().getHeaders())
-                    {
+                    for (retrofit.client.Header header : error.getResponse().getHeaders()) {
                         if ("set-cookie".equals(header.getName())) {
                             Log.v(TAG, "Header: " + header.getName() + " v= " + header.getValue());
                         }
@@ -551,7 +576,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                                                 @Override
                                                 public void run() {
 
-                                                   service.getInventory(mXXsrfToken, new Params(), new Callback<Response>() {
+                                                    service.getInventory(mXXsrfToken, new Params(), new Callback<Response>() {
                                                         @Override
                                                         public void success(Response inventory, Response response) {
                                                             Log.v(TAG, "Inventory Success!");
@@ -603,9 +628,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                         }
                     });
 
-                }
-                else
-                {
+                } else {
                     setIndeterminate(false);
                 }
             }
@@ -660,7 +683,7 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
                     } else if (item instanceof ResonatorTotals) {
                         resonatorTotals = (ResonatorTotals) item;
                     } else if (item instanceof PowerCubeTotals) {
-                        powerCubeTotals = (PowerCubeTotals)item;
+                        powerCubeTotals = (PowerCubeTotals) item;
                     }
                 }
 

@@ -61,4 +61,6 @@ dependencies {
     compile 'org.jsoup:jsoup:1.7.3'
     compile 'com.google.maps.android:android-maps-utils:0.2.1'
     compile 'com.nineoldandroids:library:2.4.0'
+
+    compile 'com.j256.ormlite:ormlite-android:4.48'
 }

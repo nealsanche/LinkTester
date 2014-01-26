@@ -19,4 +19,6 @@
     <dimen name="mod_label_width">170dp</dimen>
     <dimen name="mod_column_width">60dp</dimen>
     <dimen name="inventory_table_width">370dp</dimen>
+
+    <integer name="google_play_services_version">4030500</integer>
 </resources>
