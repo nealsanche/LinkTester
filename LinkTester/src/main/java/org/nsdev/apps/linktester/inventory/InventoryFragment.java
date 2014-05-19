@@ -30,6 +30,15 @@ public class InventoryFragment extends Fragment {
         int getPortalKeyCount();
     }
 
+    public InventoryFragment() {
+    }
+
+    public static InventoryFragment newInstance() {
+        final InventoryFragment inventoryFragment = new InventoryFragment();
+        inventoryFragment.setArguments(new Bundle());
+        return inventoryFragment;
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.inventory_table, container);

@@ -155,37 +155,38 @@ public class MainActivity extends Activity implements InventoryFragment.Inventor
         map = ((MapFragment) getFragmentManager()
                 .findFragmentById(R.id.map)).getMap();
 
-        if (Intent.ACTION_VIEW.equals(getIntent().getAction())) {
-            // We're being asked to view a map location
+        Intent intent = getIntent();
 
-            Uri data = getIntent().getData();
-            String q = data.getQueryParameter("q");
-            String z = data.getQueryParameter("z");
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
 
-            mZoom = Integer.parseInt(z);
+            String title = (String) intent.getExtras().get(Intent.EXTRA_SUBJECT);
+            String intelUrl = (String) intent.getExtras().get(Intent.EXTRA_TEXT);
 
-            Pattern pattern = Pattern.compile("loc:([^,]*),([^ ]*)\\s*\\(([^\\)]*)\\)");
+            Log.e("NAS", String.format("%s %s", title, intelUrl));
 
-            final Matcher matcher = pattern.matcher(q);
-            if (matcher.find()) {
-                mLatitudeFromIntent = Double.parseDouble(matcher.group(1));
-                mLongitudeFromIntent = Double.parseDouble(matcher.group(2));
-                mNameFromIntent = matcher.group(3);
+            final Uri uri = Uri.parse(intelUrl);
+            String ll = uri.getQueryParameter("ll");
+            int z = Integer.parseInt(uri.getQueryParameter("z"));
+            String[] parts = ll.split(",");
+            double lat = Double.parseDouble(parts[0]);
+            double lon = Double.parseDouble(parts[1]);
 
-                Log.e("NAS", String.format("%f %f %s", mLatitudeFromIntent, mLongitudeFromIntent, mNameFromIntent));
+            mLatitudeFromIntent = lat;
+            mLongitudeFromIntent = lon;
+            mNameFromIntent = title;
 
-                Portal p = new Portal();
-                p.setName(mNameFromIntent);
-                p.setLatitude(mLatitudeFromIntent);
-                p.setLongitude(mLongitudeFromIntent);
-                mDatabaseManager.save(p);
+            Log.e("NAS", String.format("%f %f %s", mLatitudeFromIntent, mLongitudeFromIntent, mNameFromIntent));
 
-                Toast.makeText(getApplicationContext(), "Saved " + mNameFromIntent, Toast.LENGTH_SHORT).show();
-                finish();
-            }
+            Portal p = new Portal();
+            p.setName(mNameFromIntent);
+            p.setLatitude(mLatitudeFromIntent);
+            p.setLongitude(mLongitudeFromIntent);
+            mDatabaseManager.save(p);
+
+            Toast.makeText(getApplicationContext(), "Saved " + mNameFromIntent, Toast.LENGTH_SHORT).show();
+            finish();
 
         }
-
         map.setMyLocationEnabled(false);
 
         restoreMapPosition();
