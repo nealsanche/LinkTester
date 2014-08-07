@@ -18,5 +18,6 @@
     <string name="action_clear_database">Clear Database</string>
     <string name="ic_action_link_title">Link</string>
     <string name="ic_action_delete_title">Delete Portal</string>
+    <string name="ic_action_shortest_path">Shortest Path</string>
 
 </resources>
