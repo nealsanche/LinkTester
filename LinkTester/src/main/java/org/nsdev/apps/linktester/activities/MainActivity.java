@@ -1,6 +1,7 @@
 package org.nsdev.apps.linktester.activities;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,8 +16,11 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.Window;
 import android.view.animation.AnticipateOvershootInterpolator;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -50,6 +54,7 @@ import org.jenetics.Optimize;
 import org.jenetics.PartiallyMatchedCrossover;
 import org.jenetics.PermutationChromosome;
 import org.jenetics.Phenotype;
+import org.jenetics.Statistics;
 import org.jenetics.SwapMutator;
 import org.jenetics.util.Factory;
 import org.jenetics.util.Function;
@@ -60,6 +65,7 @@ import org.nsdev.apps.linktester.model.Portal;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -81,6 +87,11 @@ public class MainActivity extends Activity {
 
     private DatabaseManager mDatabaseManager;
 
+    private Button stopButton;
+    private TextView distance;
+
+    private boolean mStopRequested = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -88,6 +99,15 @@ public class MainActivity extends Activity {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        stopButton = (Button) findViewById(R.id.button);
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mStopRequested = true;
+            }
+        });
+        distance = (TextView) findViewById(R.id.distance);
 
         mDatabaseManager = new DatabaseManager(this);
 
@@ -148,7 +168,7 @@ public class MainActivity extends Activity {
 
                 if (clusterPoint != null && clusterPoint.size() == 1) {
 
-                    startActionMode(new ActionMode.Callback() {
+                    ActionMode actionMode = startActionMode(new ActionMode.Callback() {
                         @Override
                         public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
                             // Inflate a menu resource providing context menu items
@@ -176,10 +196,11 @@ public class MainActivity extends Activity {
                                     mode.finish();
                                     return true;
                                 case R.id.ic_action_shortest_path:
-
                                     calculateShortestPath();
                                     mode.finish();
                                     return true;
+                                case R.id.ic_action_maps:
+                                    showInMaps(marker.getPosition(), marker.getTitle());
                             }
                             return false;
                         }
@@ -189,6 +210,9 @@ public class MainActivity extends Activity {
 
                         }
                     });
+                    if (actionMode != null && marker.getTitle() != null) {
+                        actionMode.setTitle(marker.getTitle());
+                    }
                 }
 
                 return false;
@@ -397,6 +421,10 @@ public class MainActivity extends Activity {
             pointsToAdd.add(new InputPoint(latLng, p));
         }
 
+        distance.setVisibility(View.VISIBLE);
+        stopButton.setVisibility(View.VISIBLE);
+        mStopRequested = false;
+
         AsyncTask<Void, Void, Phenotype<EnumGene<Integer>, Double>> task = new AsyncTask<Void, Void, Phenotype<EnumGene<Integer>, Double>>() {
             @Override
             protected Phenotype<EnumGene<Integer>, Double> doInBackground(Void... params) {
@@ -432,11 +460,24 @@ public class MainActivity extends Activity {
                 ga.setStatisticsCalculator(new NumberStatistics.Calculator<EnumGene<Integer>, Double>());
                 ga.setPopulationSize(500);
                 //noinspection unchecked
-                ga.setAlterers(new SwapMutator<EnumGene<Integer>>(0.1),
-                        new PartiallyMatchedCrossover<Integer>(0.2));
+                ga.setAlterers(new SwapMutator<EnumGene<Integer>>(0.15),
+                        new PartiallyMatchedCrossover<Integer>(0.6));
 
                 ga.setup();
-                ga.evolve(500);
+                ga.evolve(new Function<Statistics<EnumGene<Integer>, Double>, Boolean>() {
+                    @Override
+                    public Boolean apply(Statistics<EnumGene<Integer>, Double> enumGeneDoubleStatistics) {
+                        final Double fitness = enumGeneDoubleStatistics.getBestPhenotype().getFitness();
+                        Log.e("FIT", "Best fitness: " + fitness);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                distance.setText(String.format("%.2f km", fitness / 1000.0));
+                            }
+                        });
+                        return !(mStopRequested);
+                    }
+                });
 
                 Phenotype<EnumGene<Integer>, Double> bestPhenotype = ga.getBestPhenotype();
                 System.out.println(bestPhenotype);
@@ -447,13 +488,15 @@ public class MainActivity extends Activity {
             @Override
             protected void onPostExecute(Phenotype<EnumGene<Integer>, Double> bestPhenotype) {
 
+                distance.setVisibility(View.GONE);
+                stopButton.setVisibility(View.GONE);
+
                 setIndeterminate(false);
                 clearLinks();
 
                 Chromosome<EnumGene<Integer>> path = bestPhenotype.getGenotype().getChromosome();
 
-                Toast.makeText(MainActivity.this, String.format("Distance: %.2f km", bestPhenotype.getFitness() / 1000), Toast.LENGTH_LONG).show();
-
+                double length = 0.0;
                 for (int i = 0, n = path.length(); i < n; ++i) {
                     final int from = path.getGene(i).getAllele();
                     final int to = path.getGene((i + 1) % n).getAllele();
@@ -461,8 +504,15 @@ public class MainActivity extends Activity {
                     LatLng first = pointsToAdd.get(from).getMapPosition();
                     LatLng second = pointsToAdd.get(to).getMapPosition();
 
+                    float[] results = new float[2];
+                    Location.distanceBetween(first.latitude, first.longitude, second.latitude, second.longitude, results);
+
+                    length += results[0];
+
                     createLink(first, second);
                 }
+
+                Toast.makeText(MainActivity.this, String.format("Distance: %.2f km", length / 1000), Toast.LENGTH_LONG).show();
             }
         };
 
@@ -477,6 +527,22 @@ public class MainActivity extends Activity {
                 setProgressBarIndeterminateVisibility(isIndeterminate);
             }
         });
+    }
+
+    private void showInMaps(LatLng portalPosition, String name) {
+        String uri = String.format(Locale.ENGLISH, "http://maps.google.com/maps?&daddr=%f,%f (%s)", portalPosition.latitude, portalPosition.longitude, name);
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+        intent.setClassName("com.google.android.apps.maps", "com.google.android.maps.MapsActivity");
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException ex) {
+            try {
+                Intent unrestrictedIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+                startActivity(unrestrictedIntent);
+            } catch (ActivityNotFoundException innerEx) {
+                Toast.makeText(this, "Please install a maps application", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
 

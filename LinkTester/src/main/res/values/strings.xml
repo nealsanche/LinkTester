@@ -19,5 +19,6 @@
     <string name="ic_action_link_title">Link</string>
     <string name="ic_action_delete_title">Delete Portal</string>
     <string name="ic_action_shortest_path">Shortest Path</string>
+    <string name="ic_action_maps">Show in Maps</string>
 
 </resources>
